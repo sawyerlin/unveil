@@ -10,20 +10,21 @@
 
 ;(function($) {
 
-    $.fn.unveil = function(vthreshold, hthreshold, callback) {
+    $.fn.unveil = function(vthreshold, hthreshold, index, callback) {
 
         var $w = $(window),
             box = window.box,
             vthreshold = vthreshold || 3,
-            hthreshold = hthreshold | 7,
+            hthreshold = hthreshold || 7,
             retina = window.devicePixelRatio > 1,
             attrib = retina? "data-src-retina" : "data-src",
-            index = 0,
+            index = index || 0,
             values = [];
 
         $.each(this, function(index, value) {
             values[index] = {
                 index: 0,
+                hthreshold: hthreshold,
                 images: $(value).find('.lazy')
             };
 
@@ -37,17 +38,29 @@
             });
         });
 
+        // TODO: refactoring code
         function loadImages(currentIndex) {
-            if (currentIndex === undefined) currentIndex = index;
+            var currentHThreshold = hthreshold,
+                currentIndexUndefined = false;
 
-            if (values[currentIndex]) {
-                var inview = values[currentIndex].images.slice(0, hthreshold),
-                    loaded = inview.trigger("unveil");
+            if (currentIndex === undefined) {
+                currentIndex = index;
+                currentIndexUndefined = true;
+            } 
+            
+            var value = values[currentIndex];
 
-                values[currentIndex].images = values[currentIndex].images.not(loaded);
+            if (value) {
+                if (!currentIndexUndefined) {
+                    currentHThreshold = value.hthreshold;
+                    value.hthreshold = 1;
+                }
+
+                inview = value.images.slice(0, currentHThreshold),
+                loaded = inview.trigger("unveil");
+                value.images = value.images.not(loaded);
             }
         }
-
 
         function init() {
             for (var i = 0; i <= vthreshold; i++) {
@@ -91,7 +104,9 @@
             });
         }
 
-        init();
+        if (index == 0) {
+            init();
+        }
 
         return this;
     };
