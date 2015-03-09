@@ -13,6 +13,7 @@
   $.fn.unveil = function(threshold, callback) {
 
     var $w = $(window),
+        box = window.box,
         th = threshold || 0,
         retina = window.devicePixelRatio > 1,
         attrib = retina? "data-src-retina" : "data-src",
@@ -46,6 +47,12 @@
     }
 
     $w.on("scroll.unveil resize.unveil lookup.unveil", unveil);
+
+    if (box) {
+        box.grabKey('Down', function() {
+            unveil();
+        });
+    }
 
     unveil();
 
