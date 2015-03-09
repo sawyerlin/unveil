@@ -10,54 +10,90 @@
 
 ;(function($) {
 
-  $.fn.unveil = function(threshold, callback) {
+    $.fn.unveil = function(vthreshold, hthreshold, callback) {
 
-    var $w = $(window),
-        box = window.box,
-        th = threshold || 0,
-        retina = window.devicePixelRatio > 1,
-        attrib = retina? "data-src-retina" : "data-src",
-        images = this,
-        loaded;
+        var $w = $(window),
+            box = window.box,
+            vthreshold = vthreshold || 3,
+            hthreshold = hthreshold | 7,
+            retina = window.devicePixelRatio > 1,
+            attrib = retina? "data-src-retina" : "data-src",
+            index = 0,
+            values = [];
 
-    this.one("unveil", function() {
-      var source = this.getAttribute(attrib);
-      source = source || this.getAttribute("data-src");
-      if (source) {
-        this.setAttribute("src", source);
-        if (typeof callback === "function") callback.call(this);
-      }
-    });
+        $.each(this, function(index, value) {
+            values[index] = {
+                index: 0,
+                images: $(value).find('.lazy')
+            };
 
-    function unveil() {
-      var inview = images.filter(function() {
-        var $e = $(this);
-        if ($e.is(":hidden")) return;
-
-        var wt = $w.scrollTop(),
-            wb = wt + $w.height(),
-            et = $e.offset().top,
-            eb = et + $e.height();
-
-        return eb >= wt - th && et <= wb + th;
-      });
-
-      loaded = inview.trigger("unveil");
-      images = images.not(loaded);
-    }
-
-    $w.on("scroll.unveil resize.unveil lookup.unveil", unveil);
-
-    if (box) {
-        box.grabKey('Down', function() {
-            unveil();
+            $(value).find('.lazy').on("unveil", function() {
+                var source = this.getAttribute(attrib);
+                source = source || this.getAttribute("data-src");
+                if (source) {
+                    this.setAttribute("src", source);
+                    if (typeof callback === "function") callback.call(this);
+                }
+            });
         });
-    }
 
-    unveil();
+        function loadImages(currentIndex) {
+            if (currentIndex === undefined) currentIndex = index;
 
-    return this;
+            if (values[currentIndex]) {
+                var inview = values[currentIndex].images.slice(0, hthreshold),
+                    loaded = inview.trigger("unveil");
 
-  };
+                values[currentIndex].images = values[currentIndex].images.not(loaded);
+            }
+        }
+
+
+        function init() {
+            for (var i = 0; i <= vthreshold; i++) {
+                loadImages();
+                index ++;
+            }
+            index -= vthreshold + 1;
+        }
+
+        function unveil(type) {
+            switch (type) {
+                case 'Down':
+                    loadImages(index + vthreshold);
+                    break;
+                case 'Right':
+                    var value = values[index],
+                        currentIndex = value.index + hthreshold;
+
+                    loadImages();
+                    value.index ++;
+                    break;
+            }
+        }
+
+        if (box) {
+            box.grabKey('Down', function() {
+                if (index < values.length -1) {
+                    index ++;
+                    unveil('Down');
+                }
+            });
+
+            box.grabKey('Up', function() {
+                if (index > 0) {
+                    index --;
+                }
+            });
+
+            box.grabKey('Right', function() {
+                unveil('Right');
+            });
+        }
+
+        init();
+
+        return this;
+    };
 
 })(window.jQuery || window.Zepto);
