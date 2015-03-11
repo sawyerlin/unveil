@@ -10,25 +10,68 @@
 
 ;(function($) {
 
+    var values = [];
+
     $.fn.unveil = function(vthreshold, hthreshold, index, callback) {
 
         var $w = $(window),
             box = window.box,
             vthreshold = vthreshold || 3,
             hthreshold = hthreshold || 7,
-            retina = window.devicePixelRatio > 1,
-            attrib = retina? "data-src-retina" : "data-src",
-            index = index || 0,
-            values = [];
+            attrib = "data-src",
+            index = index || 0;
 
-        $.each(this, function(index, value) {
-            values[index] = {
+        // TODO: bind event only once
+        if (values.length == 0 && box) {
+            box.grabKey('Down', function() {
+                if (index < values.length - 1) {
+                    index ++;
+                    unveil('Down');
+                }
+            });
+
+            box.grabKey('Up', function() {
+                if (index >= 0) {
+                    index --;
+                }
+            });
+
+            box.grabKey('Right', function() {
+                unveil('Right');
+            });
+        }
+
+        // Resolve memory leak (detached dom)
+        // TODO: to improve this method
+        if(callback === undefined) {
+            values = [];
+            return;
+        }
+
+        var insert = false;
+
+
+        if (values.length > 0) {
+            insert = true;
+        }
+
+        $(this).each(function(idx, value) {
+            var images = $(value).find('.lazy');
+
+            if (insert) {
+                for (var i = values.length - 1; i >= index + idx; i --) {
+                    values[i+1] = values[i];
+                    values[i] = null;
+                }
+            }
+
+            values[index + idx] = {
                 index: 0,
                 hthreshold: hthreshold,
-                images: $(value).find('.lazy')
+                images: images
             };
 
-            $(value).find('.lazy').on("unveil", function() {
+            images.on("unveil", function() {
                 var source = this.getAttribute(attrib);
                 source = source || this.getAttribute("data-src");
                 if (source) {
@@ -36,7 +79,10 @@
                     if (typeof callback === "function") callback.call(this);
                 }
             });
+
+            images = null;
         });
+
 
         // TODO: refactoring code
         function loadImages(currentIndex) {
@@ -46,8 +92,8 @@
             if (currentIndex === undefined) {
                 currentIndex = index;
                 currentIndexUndefined = true;
-            } 
-            
+            }
+
             var value = values[currentIndex];
 
             if (value) {
@@ -59,6 +105,8 @@
                 inview = value.images.slice(0, currentHThreshold),
                 loaded = inview.trigger("unveil");
                 value.images = value.images.not(loaded);
+                inveiw = null;
+                loaded = null;
             }
         }
 
@@ -85,28 +133,7 @@
             }
         }
 
-        if (box) {
-            box.grabKey('Down', function() {
-                if (index < values.length -1) {
-                    index ++;
-                    unveil('Down');
-                }
-            });
-
-            box.grabKey('Up', function() {
-                if (index > 0) {
-                    index --;
-                }
-            });
-
-            box.grabKey('Right', function() {
-                unveil('Right');
-            });
-        }
-
-        if (index == 0) {
-            init();
-        }
+        init();
 
         return this;
     };
