@@ -1,3 +1,4 @@
+
 /**
  * jQuery Unveil
  * A very lightweight jQuery plugin to lazy load images
@@ -10,62 +11,67 @@
 
 ;(function($) {
 
-    var values = [];
+    var values = [],
+        context = {module: 'unveil'};
 
     $.fn.unveil = function(vthreshold, hthreshold, index, callback) {
 
-        var $w = $(window),
-            box = window.box,
+        var box = window.box,
             vthreshold = vthreshold || 3,
             hthreshold = hthreshold || 7,
             attrib = "data-src",
             index = index || 0;
 
-        // TODO: bind event only once
         if (values.length == 0 && box) {
+            
             box.grabKey('Down', function() {
                 if (index < values.length - 1) {
                     index ++;
                     unveil('Down');
                 }
-            });
+            }, context);
 
             box.grabKey('Up', function() {
                 if (index >= 0) {
                     index --;
                 }
-            });
+            }, context);
 
             box.grabKey('Right', function() {
                 unveil('Right');
-            });
+            }, context);
         }
 
-        // Resolve memory leak (detached dom)
-        // TODO: to improve this method
         if(callback === undefined) {
             values = [];
+            box.freeKey('Down', context);
+            box.freeKey('Up', context);
+            box.freeKey('Right', context);
             return;
         }
 
         var insert = false;
 
-
         if (values.length > 0) {
             insert = true;
         }
 
-        $(this).each(function(idx, value) {
-            var images = $(value).find('.lazy');
+        $(this).each(function(idx, val) {
+            var images = $(val).find('.lazy'),
+                currentIndex = 0;
 
             if (insert) {
-                for (var i = values.length - 1; i >= index + idx; i --) {
-                    values[i+1] = values[i];
+                currentIndex = index + idx;
+                for (var i = values.length - 1; i >= currentIndex; i --) {
+                    values[i + 1] = values[i];
                     values[i] = null;
                 }
             }
+            else {
+                currentIndex = idx;
+            }
 
-            values[index + idx] = {
+            values[currentIndex] = {
                 index: 0,
                 hthreshold: hthreshold,
                 images: images
@@ -82,7 +88,6 @@
 
             images = null;
         });
-
 
         // TODO: refactoring code
         function loadImages(currentIndex) {
@@ -124,8 +129,7 @@
                     loadImages(index + vthreshold);
                     break;
                 case 'Right':
-                    var value = values[index],
-                        currentIndex = value.index + hthreshold;
+                    var value = values[index];
 
                     loadImages();
                     value.index ++;
