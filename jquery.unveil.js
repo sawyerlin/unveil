@@ -14,16 +14,15 @@
     var values = [],
         context = {module: 'unveil'};
 
-    $.fn.unveil = function(vthreshold, hthreshold, index, callback) {
-
+    $.fn.unveil = function(index, callback) {
         var box = window.box,
-            vthreshold = vthreshold || 3,
-            hthreshold = hthreshold || 7,
+            vthreshold = 2,
+            hthreshold = 7,
             attrib = "data-src",
-            index = index || 0;
+            index = index || 0,
+            insert = values.length > 0;
 
         if (values.length == 0 && box) {
-            
             box.grabKey('Down', function() {
                 if (index < values.length - 1) {
                     index ++;
@@ -50,19 +49,13 @@
             return;
         }
 
-        var insert = false;
-
-        if (values.length > 0) {
-            insert = true;
-        }
-
         $(this).each(function(idx, val) {
-            var images = $(val).find('.lazy'),
-                currentIndex = 0;
+            var currentIndex = 0;
 
             if (insert) {
                 currentIndex = index + idx;
                 for (var i = values.length - 1; i >= currentIndex; i --) {
+                    values[i].index = i + 1;
                     values[i + 1] = values[i];
                     values[i] = null;
                 }
@@ -71,73 +64,73 @@
                 currentIndex = idx;
             }
 
-            values[currentIndex] = {
-                index: 0,
+            var value = values[currentIndex] = {
                 hthreshold: hthreshold,
-                images: images
+                index: currentIndex
             };
 
-            images.on("unveil", function() {
-                var source = this.getAttribute(attrib);
-                source = source || this.getAttribute("data-src");
-                if (source) {
-                    this.setAttribute("src", source);
-                    if (typeof callback === "function") callback.call(this);
-                }
+            $(value).on("unveil", function() {
+                $('div.mosaic-area--' + this.index).find('ul>li>img:not([src])').each(function(idx, val) {
+                    if (idx > value.hthreshold) return false;
+
+                    var source = this.getAttribute(attrib);
+                    source = source || this.getAttribute("data-src");
+                    if (source) {
+                        this.setAttribute("src", source);
+                        if (typeof callback === "function") callback.call(this);
+                    }
+                    source = null;
+                });
             });
-
-            images = null;
         });
-
-        // TODO: refactoring code
-        function loadImages(currentIndex) {
-            var currentHThreshold = hthreshold,
-                currentIndexUndefined = false;
-
-            if (currentIndex === undefined) {
-                currentIndex = index;
-                currentIndexUndefined = true;
-            }
-
-            var value = values[currentIndex];
-
-            if (value) {
-                if (!currentIndexUndefined) {
-                    currentHThreshold = value.hthreshold;
-                    value.hthreshold = 1;
-                }
-
-                inview = value.images.slice(0, currentHThreshold),
-                loaded = inview.trigger("unveil");
-                value.images = value.images.not(loaded);
-                inveiw = null;
-                loaded = null;
-            }
-        }
-
-        function init() {
-            for (var i = 0; i <= vthreshold; i++) {
-                loadImages();
-                index ++;
-            }
-            index -= vthreshold + 1;
-        }
 
         function unveil(type) {
             switch (type) {
                 case 'Down':
-                    loadImages(index + vthreshold);
-                    break;
-                case 'Right':
+                    /*
+                     * 1. load first one image of this line
+                     * 2. load first hthreshold images of line vthreshold after
+                     * this line
+                     */
                     var value = values[index];
 
-                    loadImages();
-                    value.index ++;
+                    value.hthreshold = 1;
+                    $(value).trigger('unveil');
+                    value.hthreshold = hthreshold;
+
+                    value = values[index + vthreshold];
+                    if (value) 
+                        $(value).trigger('unveil');
+                   
+                    value = null;
+                    break;
+                case 'Right':
+                    /*
+                     * load first hthreshold images of this line
+                     */
+                    $(values[index]).trigger('unveil');
+                    break;
+                default:
+                    /*
+                     * if is inserted
+                     *      load images of this line
+                     * else
+                     *      load first hthreshold images of frist vthreshold lines 
+                     */
+
+                    if (insert) {
+                        $(values[index]).trigger('unveil');
+                    } else {
+                        for (var i = index; i < vthreshold; i ++) {
+                            $(values[i]).trigger('unveil');
+                        }
+                    }
+
                     break;
             }
         }
 
-        init();
+        unveil();
 
         return this;
     };
